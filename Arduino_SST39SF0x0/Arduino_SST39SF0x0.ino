@@ -1,7 +1,8 @@
 // SST39SF0x0 Flash EEPROM Programmer by Carsten Herting 26.3.2021
 // Will read and write image filesup to 512KB. Adjust the READSIZE below to your needs.
 
-#define READSIZE          0x2000                      // CHANGE YOURSELF: Bytesize of the MEMORY CHUNK to READ from the chip
+// 128KB = 0x20000, 256KB = 0x40000, 512KB = 0x80000
+#define READSIZE          0x40000                      // CHANGE YOURSELF: Bytesize of the MEMORY CHUNK to READ from the chip
 
 #define SET_OE(state)     bitWrite(PORTB, 0, state)   // must be high for write process
 #define SET_WE(state)     bitWrite(PORTB, 1, state)   // must be a 100-1000ns low pulse
