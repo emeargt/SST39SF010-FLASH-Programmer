@@ -89,9 +89,12 @@ protected:
 
 void helpscreen()
 {
-	std::cout << "DIY AT28C64B / SST39SF0x0A Programmer v1.0\n";
-	std::cout << "written by Carsten Herting (2020)\n\n";
-	std::cout << "Usage: prom [OPTION]\n";
+	std::cout << "DIY AT28C64B / SST39SF0x0A Programmer v1.1\n";
+	std::cout << "written by Carsten Herting (2020)\n";
+	std::cout << "modified by Graeme Thompson (2022)\n\n";
+	std::cout << "Usage: prom [-p] [OPTION]\n";
+	std::cout << " -pPORT		  A one digit number specifying the COM port.\n";
+	std::cout << "OPTION:\n";
 	std::cout << " -wFILENAME     Writes the content of FILENAME to the EEPROM.\n";
 	std::cout << "                The content of the EEPROM is read back and verified.\n";
 	std::cout << " -r[FILENAME]   Reads the content of the EEPROM [to FILENAME].\n";
@@ -103,13 +106,38 @@ int main(int argc, char *argv[])
 {		
 	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), 0b111);		// enable ANSI control sequences in WINDOWS console
 
-	if (argc == 2 && strlen(argv[1]) >= 2 && argv[1][0] == '-')
+	bool valid_args = false;
+	char *option = NULL;
+	int port = -1;
+
+	if (argc == 3)
 	{
-		switch (argv[1][1])
+		if (strlen(argv[1]) >= 2 && strlen(argv[1]) <= 3 && argv[1][0] == '-' && argv[1][1] == 'p')
+		{
+			port = argv[1][2] - '0';
+			if (strlen(argv[2]) >= 2 && argv[2][0] == '-')
+			{
+				option = argv[2];
+				valid_args = true;
+			}
+		}
+	}
+	else if (argc == 2)
+	{
+		if (strlen(argv[1]) >= 2 && argv[1][0] == '-' && argv[1][1] != 'p')
+		{
+			option = argv[1];
+			valid_args = true;
+		}
+	}
+	
+	if (valid_args)
+	{
+		switch (option[1])
 		{
 			case 'c':
 			{
-				std::ifstream file(&argv[1][2], std::ios::binary | std::ios::in);
+				std::ifstream file(&option[2], std::ios::binary | std::ios::in);
 				uint32_t checksum = 0;
 				if (file.is_open())
 				{
@@ -123,14 +151,15 @@ int main(int argc, char *argv[])
 						file.read((char*)&to, 1);
 						checksum += to;
 					}
-					std::cout << "FILE bytesize = " << bytesize << ", checksum = " << checksum << std::endl;
+					std::cout << "FILE bytesize = 0x" << std::hex << bytesize
+					<< ", checksum = " << std::dec << checksum << std::endl;
 					file.close();
 				} else std::cout << "ERROR: File not found." << std::endl;
 				break;
 			}			
 			case 'w':
 			{
-				std::ifstream file(&argv[1][2], std::ios::binary | std::ios::in);
+				std::ifstream file(&option[2], std::ios::binary | std::ios::in);
 				if (file.is_open())
 				{
 					file.seekg (0, file.end);				// get byte length of file
@@ -138,7 +167,7 @@ int main(int argc, char *argv[])
 					file.seekg (0, file.beg);
 
 					CSerial com;
-					int port = com.GetFirstComPort();
+					if (port == -1) port = com.GetFirstComPort();
 					if (port != -1 && com.Open(port, 115200))
 					{
 						std::cout << "Opened COM" << port << std::endl;
@@ -151,7 +180,8 @@ int main(int argc, char *argv[])
 							file.read(filebuf, bytesize);
 							uint32_t checksum = 0;
 							for (int i=0; i<bytesize; i++) checksum += UCHAR(filebuf[i]);
-							std::cout << "FILE bytesize = " << bytesize << ", checksum = " << checksum << std::endl;							
+							std::cout << "FILE bytesize = 0x" << std::hex << bytesize 
+							<< ", checksum = " << std::dec << checksum << std::endl;					
 							for(int i=0; i<bytesize; i+=32)
 							{
 								com.SendData((const char *)&filebuf[i], 32);
@@ -190,7 +220,7 @@ int main(int argc, char *argv[])
 			case 'r':
 			{
 				CSerial com;
-				int port = com.GetFirstComPort();
+				if (port == -1) port = com.GetFirstComPort();
 				if (port != -1 && com.Open(port, 115200))
 				{
 					std::cout << "Opened COM" << port << std::endl;
@@ -201,7 +231,7 @@ int main(int argc, char *argv[])
 						std::cout << "READ MODE" << std::endl;
 						uint32_t bytesize = 0, checksum = 0;
 						std::ofstream file;
-						if (strlen(argv[1]) > 2) file.open(&argv[1][2], std::ios::binary | std::ios::out);
+						if (strlen(option) > 2) file.open(&option[2], std::ios::binary | std::ios::out);
 						uint32_t nowticks, lastticks = GetTickCount();
 						do
 						{
@@ -215,7 +245,8 @@ int main(int argc, char *argv[])
 							}
 						} while (nowticks - lastticks < 500);
 						if (file.is_open()) file.close();
-						std::cout << "READ bytesize = " << bytesize << ", checksum = " << checksum << std::endl;
+						std::cout << "READ bytesize = 0x" << std::hex << bytesize
+						<< ", checksum = " << std::dec << checksum << std::endl;
 						com.Close();
 					} else std::cout << "ERROR: Unable to enter READ mode." << std::endl;
 				} else std::cout << "ERROR: Can't open COM port." << std::endl;
@@ -223,8 +254,11 @@ int main(int argc, char *argv[])
 			}
 			default: helpscreen(); break;
 		}
-	} else helpscreen();
-
+	}
+	else 
+	{
+		helpscreen();
+	}
 	return 0;
 }
 
